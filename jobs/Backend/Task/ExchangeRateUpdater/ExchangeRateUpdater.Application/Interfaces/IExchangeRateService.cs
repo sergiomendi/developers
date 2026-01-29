@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using ExchangeRateUpdater.Application.DTOs;
 
 namespace ExchangeRateUpdater.Application.Interfaces;

@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using ExchangeRateUpdater.Domain.Entities;
 using ExchangeRateUpdater.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using System.Linq;  
+using System.Linq;
+using System.Text.Json;
 
 
 namespace ExchangeRateUpdater.Infrastructure.Http;
@@ -21,8 +20,7 @@ public class CnbHttpExchangeRateRepository : IExchangeRateRepository
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<CnbHttpExchangeRateRepository> _logger;
-    
-    private const string CnbDailyRatesUrl = "https://www.cnb.cz/en/financial-markets/foreign-exchange-market/central-bank-exchange-rate-fixing/central-bank-exchange-rate-fixing/daily.txt";
+    private const string CnbJsonRatesUrl = "https://api.cnb.cz/cnbapi/exrates/daily?lang=EN";
 
     public CnbHttpExchangeRateRepository(HttpClient httpClient, ILogger<CnbHttpExchangeRateRepository> logger)
     {
@@ -31,50 +29,26 @@ public class CnbHttpExchangeRateRepository : IExchangeRateRepository
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mews-ExchangeRateUpdater/1.0");
     }
 
-    public async Task<IReadOnlyDictionary<string, ExchangeRate>> GetCurrentRatesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyDictionary<string, ExchangeRate>> GetCurrentRatesAsync(CancellationToken ct)
     {
-        _logger.LogInformation("Fetching CNB daily exchange rates from {Url}", CnbDailyRatesUrl);
+        _logger.LogInformation("Fetching CNB JSON rates from {Url}", CnbJsonRatesUrl);
         
-        try
-        {
-            var content = await _httpClient.GetStringAsync(CnbDailyRatesUrl, cancellationToken);
-            var rates = ParseCnbDailyTxt(content);
-            
-            _logger.LogInformation("Successfully parsed {Count} exchange rates from CNB", rates.Count);
-            return rates;
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogError(ex, "Failed to fetch CNB rates from {Url}", CnbDailyRatesUrl);
-            throw new InvalidOperationException("CNB exchange rates unavailable", ex);
-        }
-        catch (TaskCanceledException ex) when (ex.CancellationToken.IsCancellationRequested)
-        {
-            _logger.LogInformation("CNB rates request cancelled");
-            throw;
-        }
+        var response = await _httpClient.GetAsync(CnbJsonRatesUrl, ct);
+        response.EnsureSuccessStatusCode();
+        
+        var json = await response.Content.ReadAsStringAsync(ct);
+        var rates = await ParseCnbJsonAsync(json);
+        
+        _logger.LogInformation("Parsed {Count} JSON rates from CNB API", rates.Count);
+        return rates;
     }
 
-    private static Dictionary<string, ExchangeRate> ParseCnbDailyTxt(string content)
+    private async Task<Dictionary<string, ExchangeRate>> ParseCnbJsonAsync(string jsonContent)
     {
-        var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                          .Skip(2); // Skip date/header
+        var cnbResponse = JsonSerializer.Deserialize<CnbDailyResponse>(jsonContent);
         
-        var rates = new Dictionary<string, ExchangeRate>(StringComparer.OrdinalIgnoreCase);
-        
-        foreach (var line in lines)
-        {
-            var parts = line.Split('|');
-            if (parts.Length == 5 && 
-                int.TryParse(parts[2].Trim(), out int amount) &&
-                decimal.TryParse(parts[4].Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out decimal rawRate) &&
-                amount > 0)
-            {
-                var normalizedRate = rawRate / amount;
-                rates[parts[3].Trim()] = new ExchangeRate(parts[3].Trim(), normalizedRate, DateTime.UtcNow);
-            }
-        }
-        
-        return rates;
+        return cnbResponse.rates.ToDictionary(
+            r => r.currencyCode,
+            r => new ExchangeRate(r.currencyCode, r.rate, DateTime.UtcNow));
     }
 }

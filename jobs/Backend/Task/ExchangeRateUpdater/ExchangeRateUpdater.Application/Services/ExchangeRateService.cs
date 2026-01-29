@@ -1,11 +1,8 @@
-using System.Linq;
 using ExchangeRateUpdater.Application.DTOs;
 using ExchangeRateUpdater.Application.Interfaces;
 using ExchangeRateUpdater.Domain.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace ExchangeRateUpdater.Application.Services;
 

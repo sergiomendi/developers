@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace ExchangeRateUpdater.Application.DTOs;
 
 public record ExchangeRateDto(string CurrencyCode, decimal RateToCZK);

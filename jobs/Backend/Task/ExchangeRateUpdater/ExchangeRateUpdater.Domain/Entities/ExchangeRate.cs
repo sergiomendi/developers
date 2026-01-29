@@ -9,8 +9,8 @@ namespace ExchangeRateUpdater.Domain.Entities;
 public record ExchangeRate
 {
     public string CurrencyCode { get; init; } = string.Empty;  // ISO4217 uppercase
-    public decimal RateToCZK { get; init; }                    // Normalized rate /1
-    public DateTime UpdatedAt { get; init; } = DateTime.UtcNow; // CNB daily fix
+    public decimal RateToCZK { get; init; } // Normalized rate /1
+    public DateTime UpdatedAt { get; init; } = DateTime.UtcNow; 
 
     public ExchangeRate(string code, decimal rate, DateTime updatedAt)
     {

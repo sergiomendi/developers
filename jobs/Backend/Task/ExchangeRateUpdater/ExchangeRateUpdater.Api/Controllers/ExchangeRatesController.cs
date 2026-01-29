@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using ExchangeRateUpdater.Application.Interfaces;
-using ExchangeRateUpdater.Application.DTOs;
 
 namespace ExchangeRateUpdater.Api.Controllers;
 
